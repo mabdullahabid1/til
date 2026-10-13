@@ -2,7 +2,7 @@
 
 My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.com/simonw/til).
 
-<!-- count starts -->32<!-- count ends --> TILs so far.
+<!-- count starts -->37<!-- count ends --> TILs so far.
 
 <!-- index starts -->
 ## azure
@@ -80,6 +80,8 @@ My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.c
 ## shopify
 
 * [Shopify Webhook Date Trap](https://github.com/mabdullahabid/til/blob/main/shopify/shopify-webhook-date-trap.md) - 2026-04-11
+* [Shopify Custom Line Items Do Not Inherit Variant Tax Settings](https://github.com/mabdullahabid/til/blob/main/shopify/custom-line-items-do-not-inherit-variant-tax-settings.md) - 2026-10-13
+* [Shopify Order Creation Supports One Discount Code](https://github.com/mabdullahabid/til/blob/main/shopify/order-create-supports-one-discount-code.md) - 2026-10-13
 
 ## playwright
 
@@ -88,6 +90,9 @@ My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.c
 ## django
 
 * [QuerySet.update() Bypasses Model and Wagtail Signals](https://github.com/mabdullahabid/til/blob/main/django/queryset-update-bypasses-model-and-wagtail-signals.md) - 2026-09-23
+* [Defer External Side Effects Until the Database Commits](https://github.com/mabdullahabid/til/blob/main/django/defer-external-side-effects-until-database-commit.md) - 2026-10-13
+* [Repair Unapplied Conflicting Django Migration Leaves Safely](https://github.com/mabdullahabid/til/blob/main/django/repair-unapplied-conflicting-migration-leaves.md) - 2026-10-13
+* [A FileField Cannot Use an Auto Primary Key on First Save](https://github.com/mabdullahabid/til/blob/main/django/filefield-primary-key-is-unset-on-first-save.md) - 2026-10-13
 
 ## docker
 
