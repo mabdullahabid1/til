@@ -21,6 +21,10 @@ def highlight(s):
 @hookimpl
 def extra_template_vars(request, datasette):
     async def related_tils(til):
+        db = datasette.get_database()
+        # Similarities only exist once embeddings have been calculated
+        if not await db.table_exists("similarities"):
+            return []
         path = til["path"]
         sql = """
         select
@@ -30,7 +34,7 @@ def extra_template_vars(request, datasette):
         where similarities.id = :path
         order by similarities.score desc limit 10
         """
-        result = await datasette.get_database().execute(
+        result = await db.execute(
             sql,
             {"path": til["path"]},
         )

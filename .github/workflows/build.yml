@@ -64,6 +64,9 @@ jobs:
       run: |-
         cd main
         datasette . --get / | grep "Abdullah Abid: TIL"
+        # A TIL page exercises the template plugins too
+        page=$(sqlite-utils tils.db "select topic || '/' || slug as p from til limit 1" --raw | head -1)
+        datasette . --get "/$page" | grep -q '<h1>'
     - name: Generate missing screenshots
       # Reuses screenshots the live site already serves from /shots/ and
       # only renders new or changed TILs
