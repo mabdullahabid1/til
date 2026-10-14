@@ -1,5 +1,6 @@
 # Datasette image for til.abd.dev, deployed on Coolify (cfy1).
-# tils.db is built by .github/workflows/build.yml before `docker build`.
+# tils.db and shots/ are built by .github/workflows/build.yml before
+# `docker build`.
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -20,6 +21,7 @@ COPY metadata.yaml tils.db ./
 COPY plugins ./plugins
 COPY templates ./templates
 COPY static ./static
+COPY shots ./shots
 
 EXPOSE 8001
 
@@ -29,4 +31,5 @@ CMD ["datasette", "serve", "-i", "tils.db", \
      "--plugins-dir", "plugins", \
      "--template-dir", "templates", \
      "--static", "static:static", \
+     "--static", "shots:shots", \
      "--setting", "force_https_urls", "on"]

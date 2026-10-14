@@ -12,8 +12,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/mabdullahabid1/til
-  HAS_AWS: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
-  HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+  HAS_AZURE_OPENAI: ${{ secrets.AZURE_OPENAI_API_KEY != '' }}
 
 jobs:
   build:
@@ -37,7 +36,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
     - name: Cache Playwright browsers
-      if: env.HAS_AWS == 'true'
       uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright/
@@ -47,7 +45,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r main/requirements.txt
     - name: Install Playwright dependencies
-      if: env.HAS_AWS == 'true'
       run: |
         shot-scraper install
     - name: Download previous database unless REBUILD in commit message
@@ -68,37 +65,25 @@ jobs:
         cd main
         datasette . --get / | grep "Abdullah Abid: TIL"
     - name: Generate missing screenshots
-      if: env.HAS_AWS == 'true'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # Reuses screenshots the live site already serves from /shots/ and
+      # only renders new or changed TILs
       run: |-
         cd main
         python generate_screenshots.py
     - name: Vacuum database
       run: sqlite-utils vacuum main/tils.db
     - name: Calculate embeddings and document similarity
-      if: env.HAS_OPENAI == 'true'
-      # Search enrichment should not block publishing when the external
-      # embedding provider is unavailable.
+      if: env.HAS_AZURE_OPENAI == 'true'
+      # Related TILs should not block publishing when the embedding
+      # provider is unavailable.
       continue-on-error: true
       env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+        AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+        AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ vars.AZURE_OPENAI_EMBEDDING_DEPLOYMENT }}
       run: |-
         cd main
-        # Fetch embeddings for documents that need them
-        openai-to-sqlite embeddings tils.db \
-          --sql 'select path, title, topic, body from til'
-        # Now calculate and save similarities
-        if sqlite-utils rows tils.db similarities --limit 1; then
-          # Table exists already, so only calculate new similarities
-          openai-to-sqlite similar tils.db \
-            $(git diff --name-only HEAD~10 HEAD | grep '/.*\.md$' | sed 's/\//_/g') \
-            --save --recalculate-for-matches --print
-        else
-          # Table does not exist, calculate for everything
-          openai-to-sqlite similar tils.db --all --save
-        fi
+        python build_embeddings.py
     - name: Update README
       run: |-
         cd main
@@ -112,13 +97,6 @@ jobs:
         git config --global user.name "README-bot"
         git diff --quiet || (git add README.md && git commit -m "Updated README")
         git push
-    - name: Upload latest tils.db to the S3 bucket
-      if: env.HAS_AWS == 'true'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      run: |-
-        s3-credentials put-object til.abd.dev tils.db main/tils.db
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:

@@ -1,2 +1,4 @@
 venv
 tils.db
+shots
+__pycache__
