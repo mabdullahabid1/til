@@ -1,6 +1,6 @@
 title: Today I Learned
-about: mabdullahabid/til
-about_url: https://github.com/mabdullahabid/til
+about: mabdullahabid1/til
+about_url: https://github.com/mabdullahabid1/til
 plugins:
   datasette-graphql:
     path: /-/graphql

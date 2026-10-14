@@ -4,22 +4,32 @@ on:
   push:
     branches:
     - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/mabdullahabid1/til
+  HAS_AWS: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+  HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - name: Check out repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       # We need full history to introspect created/updated:
       with:
         fetch-depth: 0
         path: main
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.11
-    - uses: actions/cache@v3
+        python-version: '3.12'
+    - uses: actions/cache@v4
       name: Configure pip caching
       with:
         path: ~/.cache/pip
@@ -27,7 +37,8 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
     - name: Cache Playwright browsers
-      uses: actions/cache@v3
+      if: env.HAS_AWS == 'true'
+      uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright/
         key: ${{ runner.os }}-browsers
@@ -36,12 +47,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r main/requirements.txt
     - name: Install Playwright dependencies
+      if: env.HAS_AWS == 'true'
       run: |
         shot-scraper install
     - name: Download previous database unless REBUILD in commit message
       if: |-
         !contains(github.event.head_commit.message, 'REBUILD')
-      run: curl --fail -o main/tils.db https://s3.amazonaws.com/til.abd.dev/tils.db
+      # The live site serves its own database, which keeps embeddings,
+      # similarities and screenshot hashes from earlier runs
+      run: curl --fail -o main/tils.db https://til.abd.dev/tils.db
       continue-on-error: true
     - name: Build database
       env:
@@ -54,16 +68,19 @@ jobs:
         cd main
         datasette . --get / | grep "Abdullah Abid: TIL"
     - name: Generate missing screenshots
+      if: env.HAS_AWS == 'true'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |-
         cd main
         python generate_screenshots.py
-        sqlite-utils vacuum tils.db
+    - name: Vacuum database
+      run: sqlite-utils vacuum main/tils.db
     - name: Calculate embeddings and document similarity
+      if: env.HAS_OPENAI == 'true'
       # Search enrichment should not block publishing when the external
-      # embedding provider or its credentials are unavailable.
+      # embedding provider is unavailable.
       continue-on-error: true
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -96,43 +113,33 @@ jobs:
         git diff --quiet || (git add README.md && git commit -m "Updated README")
         git push
     - name: Upload latest tils.db to the S3 bucket
+      if: env.HAS_AWS == 'true'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |-
         s3-credentials put-object til.abd.dev tils.db main/tils.db
-    - name: Install Vercel CLI
-      run: npm install -g vercel@latest
-    
-    - name: Deploy Datasette using Vercel
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build and push Datasette image
+      uses: docker/build-push-action@v6
+      with:
+        context: main
+        push: true
+        tags: |
+          ${{ env.IMAGE }}:latest
+          ${{ env.IMAGE }}:${{ github.sha }}
+        labels: |
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
+    - name: Deploy on Coolify
       env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        COOLIFY_APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
       run: |-
-        cd main
-        # Generate deployment files (but don't deploy yet)
-        datasette publish vercel tils.db \
-          --token $VERCEL_TOKEN \
-          --project til \
-          --scope abd-dev \
-          --metadata metadata.yaml \
-          --static static:static \
-          --install datasette-template-sql \
-          --install "datasette-sitemap>=1.0" \
-          --install "datasette-atom>=0.7" \
-          --install datasette-json-html \
-          --install beautifulsoup4 \
-          --install "datasette-debug-asgi>=1.1" \
-          --install "datasette-graphql>=2.2" \
-          --install datasette-block-robots \
-          --install datasette-llm-embed \
-          --plugins-dir plugins \
-          --template-dir templates \
-          --generate-dir=vercel-deploy
-        
-        # Fix vercel.json to use latest Python instead of 3.9
-        # The generated file uses @vercel/python@3.0.7 which is discontinued
-        echo '{"name": "til", "version": 2, "builds": [{"src": "index.py", "use": "@vercel/python"}], "routes": [{"src": "(.*)", "dest": "index.py"}]}' > vercel-deploy/vercel.json
-        
-        # Deploy using the fixed vercel.json
-        cd vercel-deploy
-        vercel --confirm --prod --token $VERCEL_TOKEN --scope abd-dev
+        curl --fail-with-body -sS \
+          -H "Authorization: Bearer $COOLIFY_TOKEN" \
+          "https://cfy0.abd.dev/api/v1/deploy?uuid=$COOLIFY_APP_UUID&force=false"
