@@ -11,6 +11,7 @@ import math
 import os
 import pathlib
 import struct
+import time
 
 import httpx
 import sqlite_utils
@@ -20,6 +21,9 @@ API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21")
 RELATED_COUNT = 10
 # Embedding models accept ~8k tokens; ~4 characters per token keeps us under
 MAX_CHARS = 24_000
+# Keeps each request well under small tokens-per-minute quotas
+BATCH_CHARS = 24_000
+MAX_RETRIES = 8
 
 
 def encode(values):
@@ -38,13 +42,20 @@ def cosine_similarity(a, b):
 def fetch_embeddings(texts):
     endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
     deployment = os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"]
-    response = httpx.post(
-        f"{endpoint}/openai/deployments/{deployment}/embeddings",
-        params={"api-version": API_VERSION},
-        headers={"api-key": os.environ["AZURE_OPENAI_API_KEY"]},
-        json={"input": texts},
-        timeout=120,
-    )
+    for attempt in range(MAX_RETRIES + 1):
+        response = httpx.post(
+            f"{endpoint}/openai/deployments/{deployment}/embeddings",
+            params={"api-version": API_VERSION},
+            headers={"api-key": os.environ["AZURE_OPENAI_API_KEY"]},
+            json={"input": texts},
+            timeout=120,
+        )
+        if response.status_code != 429 or attempt == MAX_RETRIES:
+            break
+        # Azure says how long to wait when the deployment's quota is used up
+        wait = float(response.headers.get("retry-after", 2**attempt))
+        print(f"Rate limited, retrying in {wait:.0f}s")
+        time.sleep(min(wait, 90))
     response.raise_for_status()
     data = sorted(response.json()["data"], key=lambda item: item["index"])
     return [item["embedding"] for item in data]
@@ -73,8 +84,17 @@ def build_embeddings(db):
         if existing.get(row["path"]) != (model, content_hash):
             todo.append((row["path"], text, content_hash))
 
-    for start in range(0, len(todo), 16):
-        batch = todo[start : start + 16]
+    batches, batch, size = [], [], 0
+    for item in todo:
+        if batch and (len(batch) == 16 or size + len(item[1]) > BATCH_CHARS):
+            batches.append(batch)
+            batch, size = [], 0
+        batch.append(item)
+        size += len(item[1])
+    if batch:
+        batches.append(batch)
+
+    for batch in batches:
         vectors = fetch_embeddings([text for _, text, _ in batch])
         embeddings.upsert_all(
             [
