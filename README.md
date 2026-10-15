@@ -2,7 +2,7 @@
 
 My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.com/simonw/til).
 
-<!-- count starts -->37<!-- count ends --> TILs so far.
+<!-- count starts -->42<!-- count ends --> TILs so far.
 
 <!-- index starts -->
 ## azure
@@ -86,6 +86,8 @@ My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.c
 ## docker
 
 * [Removed Compose Services Require Dependency Cleanup](https://github.com/mabdullahabid1/til/blob/main/docker/removed-compose-services-require-dependency-cleanup.md) - 2026-09-23
+* [Probe the New Container Over Loopback](https://github.com/mabdullahabid1/til/blob/main/docker/probe-the-new-container-over-loopback.md) - 2026-10-15
+* [Run Database Migrations at Container Start, Not Image Build](https://github.com/mabdullahabid1/til/blob/main/docker/run-database-migrations-at-container-start.md) - 2026-10-15
 
 ## django
 
@@ -107,6 +109,7 @@ My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.c
 
 * [Initialize PostHog Before Next.js Hydration](https://github.com/mabdullahabid1/til/blob/main/nextjs/initialize-posthog-before-nextjs-hydration.md) - 2026-09-29
 * [Let Rate-Limit Clients Own the Cooldown](https://github.com/mabdullahabid1/til/blob/main/nextjs/let-rate-limit-clients-own-the-cooldown.md) - 2026-10-04
+* [Force Dynamic Next.js Routes After Database-Less Builds](https://github.com/mabdullahabid1/til/blob/main/nextjs/force-dynamic-nextjs-routes-after-db-less-builds.md) - 2026-10-15
 
 ## git
 
@@ -119,4 +122,9 @@ My Today I Learned (TIL) snippets. Heavily inspired by [simonw](https://github.c
 ## python
 
 * [dict.get Defaults Only Apply to Missing Keys](https://github.com/mabdullahabid1/til/blob/main/python/dict-get-default-only-fires-on-missing-key.md) - 2026-10-04
+* [Circular Time Windows Need Sequence Order](https://github.com/mabdullahabid1/til/blob/main/python/circular-time-window-use-first-last-not-min-max.md) - 2026-10-15
+
+## testing
+
+* [Prove a Simulator Matches Production with Parity Tests](https://github.com/mabdullahabid1/til/blob/main/testing/prove-a-simulator-matches-production-with-parity-tests.md) - 2026-10-15
 <!-- index ends -->
